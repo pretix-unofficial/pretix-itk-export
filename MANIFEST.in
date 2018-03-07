@@ -1,0 +1,3 @@
+recursive-include pretix_itkexport/static *
+recursive-include pretix_itkexport/templates *
+recursive-include pretix_itkexport/locale *
