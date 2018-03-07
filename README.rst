@@ -1,7 +1,14 @@
 ITK export
-==========================
+==========
 
-This is a plugin for `pretix`_. 
+This is a plugin for `pretix`_.
+
+Usage
+-----
+
+```
+python manage.py itk-export [--starttime YYYY-mm-dd] [--endtime YYYY-mm-dd]
+```
 
 Development setup
 -----------------
