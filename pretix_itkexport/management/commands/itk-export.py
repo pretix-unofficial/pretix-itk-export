@@ -4,7 +4,7 @@ import datetime
 import pytz
 from dateutil import parser, relativedelta
 from django.core.management.base import BaseCommand, CommandError
-from pretix.base.models.orders import Order
+from pretix_itkexport.exporters import EventExporter
 
 
 class Command(BaseCommand):
@@ -31,9 +31,11 @@ class Command(BaseCommand):
             raise CommandError('Error parsing starttime: %s' % options['endtime'])
         endtime = pytz.utc.localize(endtime)
 
+        exporter = EventExporter()
+        data = exporter.getData(starttime=starttime, endtime=endtime)
+
         writer = csv.writer(self.stdout)
-
-        orders = Order.objects.filter(datetime__gte=starttime, datetime__lt=endtime)
-
-        for order in orders:
-            writer.writerow([order.id, datetime.date.strftime(order.datetime, self.date_format), order.total, order.event])
+        for index, item in enumerate(data):
+            if index == 0:
+                writer.writerow(item.keys())
+            writer.writerow(item.values())
