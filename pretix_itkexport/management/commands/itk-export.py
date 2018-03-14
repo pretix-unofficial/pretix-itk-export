@@ -34,8 +34,10 @@ class Command(BaseCommand):
         exporter = EventExporter()
         data = exporter.getData(starttime=starttime, endtime=endtime)
 
+        keys = ['organizer', 'name', 'datetime', 'revenue', 'expenses', 'audience']
+
         writer = csv.writer(self.stdout)
         for index, item in enumerate(data):
             if index == 0:
-                writer.writerow(item.keys())
-            writer.writerow(item.values())
+                writer.writerow(keys)
+            writer.writerow([item[key] for key in keys])
