@@ -7,7 +7,7 @@ Usage
 -----
 
 ```
-python manage.py itk-export [--starttime YYYY-mm-dd] [--endtime YYYY-mm-dd]
+LC_ALL=da_DK.UTF-8 python manage.py itk-export --help
 ```
 
 Development setup
