@@ -1,0 +1,10 @@
+{% extends "pretixcontrol/event/settings.html" %}
+
+{% block inside %}
+  {{ block.super }}
+
+  {% comment %}
+  Inject our custom JavaScript to tweak the Event settings ui.
+  {% endcomment %}
+  <script src="/static/pretix_itkexport/event-settings.js"></script>
+{% endblock %}
