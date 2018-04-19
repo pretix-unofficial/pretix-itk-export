@@ -8,19 +8,20 @@ Post-installion
 
 To make a non-empty “PSP” metadata value read-only, you have to use a custom template for event settings:
 
-```
-cd «your `data` folder»
-mkdir -p templates/pretixcontrol/event/
-ln -sf $VIRTUAL_ENV/src/pretix-itk-export/pretix_itkexport/templates/pretixcontrol/event/settings.html templates/pretixcontrol/event/
-```
+.. code-block::
+
+  cd «your `data` folder»
+  mkdir -p templates/pretixcontrol/event/
+  ln -sf $VIRTUAL_ENV/src/pretix-itk-export/pretix_itkexport/templates/pretixcontrol/event/settings.html templates/pretixcontrol/event/
 
 
 Usage
 -----
 
-```
-LC_ALL=da_DK.UTF-8 python manage.py itk-export --help
-```
+.. code-block::
+
+  LC_ALL=da_DK.UTF-8 python manage.py itk-export --help
+
 
 Development setup
 -----------------
