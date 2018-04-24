@@ -1,13 +1,15 @@
 import csv
 import io
-import re
 from datetime import datetime
 
 import dateparser
 import django.conf
 import pytz
+import yaml
 from django.core.mail import EmailMessage
 from django.core.management.base import BaseCommand, CommandError
+from django.utils import translation
+from django.utils.translation import ugettext_lazy as _
 from pretix_itkexport.exporters import (
     EventExporter, PaidOrdersExporter, PaidOrdersGroupedExporter,
 )
@@ -20,61 +22,97 @@ class Command(BaseCommand):
 
     exporter_classes = {
         'event': EventExporter,
-        'paid_orders': PaidOrdersExporter,
-        'paid_orders_grouped': PaidOrdersGroupedExporter
+        'paid-orders': PaidOrdersExporter,
+        'paid-orders-grouped': PaidOrdersGroupedExporter
     }
 
     def add_arguments(self, parser):
         parser.add_argument('export_type', type=str, help=', '.join(Command.exporter_classes.keys()))
+        parser.add_argument('--info', action='store_true', help='Show info on the specified export type')
         parser.add_argument('--starttime', nargs='?', type=str)
         parser.add_argument('--endtime', nargs='?', type=str)
-        parser.add_argument('--period', nargs='?', type=str, help='last-year, last-month, last-week, last-day')
-        parser.add_argument('--recipients', nargs='?', type=str)
+        parser.add_argument('--period', nargs='?', type=str,
+                            help='current-year, previous-year, '
+                                 'current-month, previous-month, '
+                                 'current-week, previous-week, '
+                                 'current-day, today, '
+                                 'previous-day, yesterday')
+        parser.add_argument('--recipient', action='append', nargs='?', type=str, help='Email adress to send export result to (can be used multiple times)')
+        parser.add_argument('--debug', action='store_true')
+        parser.add_argument('--verbose', action='store_true')
 
     def handle(self, *args, **options):
-        settings = self.getSettings(options)
+        try:
+            from django.conf import settings
+            translation.activate(settings.LANGUAGE_CODE)
 
-        export_type = settings['export_type']
-        if export_type not in Command.exporter_classes:
-            raise CommandError('Unknown export type: {}'.format(export_type))
+            debug = options['debug']
+            verbose = debug or options['verbose']
 
-        exporter = Command.exporter_classes[export_type]()
-        data = exporter.getData(**settings)
+            settings = self.getSettings(options)
 
-        recipient_list = settings['recipient_list']
+            if debug:
+                print('options:')
+                print(yaml.dump(options, default_flow_style=False))
 
-        if recipient_list:
-            now = datetime.now()
-            filename = 'eventbillet-{}.csv'.format(now.strftime('%Y%m%dT%H%M'))
-            output = io.StringIO()
-            writer = csv.writer(output, dialect='excel', delimiter=';', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-            for row in data:
-                writer.writerow(row)
-            content = output.getvalue()
-            output.close()
+                print('settings:')
+                print(yaml.dump(settings, default_flow_style=False))
 
-            subject = 'Export from eventbillet ({})'.format(now.strftime('%Y-%m-%d %H:%M'))
-            body = content
-            from_email = settings['from_email']
+            export_type = settings['export_type']
+            if export_type not in Command.exporter_classes:
+                raise CommandError('Unknown export type: {}'.format(export_type))
 
-            email = EmailMessage(
-                subject=subject,
-                body=body,
-                from_email=from_email,
-                to=recipient_list,
-                attachments=[
-                    (filename, content, 'text/csv'),
-                ]
-            )
+            exporter = Command.exporter_classes[export_type]()
 
-            email.send(fail_silently=False)
+            if options['info']:
+                print(exporter.info())
+                return
 
-            print(content)
+            data = exporter.getData(**settings)
 
-        else:
-            writer = csv.writer(self.stdout)
-            for row in data:
-                writer.writerow(row)
+            recipient_list = settings['recipient_list']
+
+            if recipient_list:
+                now = datetime.now()
+                filename = 'eventbillet-{}.csv'.format(now.strftime('%Y%m%dT%H%M'))
+                output = io.StringIO()
+                writer = csv.writer(output, dialect='excel', delimiter=';', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                for row in data:
+                    writer.writerow(row)
+                content = output.getvalue()
+                output.close()
+
+                subject = _('Order export from {site_name}').format(site_name=django.conf.settings.PRETIX_INSTANCE_NAME)
+                if 'starttime' in settings:
+                    starttime = settings['starttime']
+                    endtime = settings['endtime'] if 'endtime' in settings else now
+                    subject += ' ({:%Y-%m-%d}–{:%Y-%m-%d})'.format(starttime, endtime)
+                body = content
+                from_email = settings['from_email']
+
+                email = EmailMessage(
+                    subject=subject,
+                    body=body,
+                    from_email=from_email,
+                    to=recipient_list,
+                    attachments=[
+                        (filename, content, 'text/csv'),
+                    ]
+                )
+
+                email.send(fail_silently=False)
+
+                if verbose:
+                    print(content)
+                    print('Sent to: {}'.format(', '.join(recipient_list)))
+                    print('Subject: {}'.format(subject))
+
+            else:
+                writer = csv.writer(self.stdout)
+                for row in data:
+                    writer.writerow(row)
+        except Exception as e:
+            raise CommandError(e)
 
     def getSettings(self, options):
         settings = django.conf.settings.ITK_EXPORT.copy() if hasattr(django.conf.settings, 'ITK_EXPORT') else {}
@@ -93,15 +131,18 @@ class Command(BaseCommand):
             d = dateparser.parse(settings['starttime'])
             if d is None:
                 raise CommandError('Error parsing starttime: {}'.format(settings['starttime']))
+            if d.tzinfo is None or d.tzinfo.utcoffset(d) is None:
+                d = pytz.utc.localize(d)
             settings['starttime'] = d
-
         if 'endtime' in settings:
             d = dateparser.parse(settings['endtime'])
             if d is None:
                 raise CommandError('Error parsing endtime: {}'.format(settings['endtime']))
+            if d.tzinfo is None or d.tzinfo.utcoffset(d) is None:
+                d = pytz.utc.localize(d)
             settings['endtime'] = d
 
-        settings['recipient_list'] = re.split(r'\s*,\s*', settings['recipients']) if 'recipients' in settings else None
+        settings['recipient_list'] = settings['recipient'] if 'recipient' in settings else None
         settings['from_email'] = settings['sender'] if 'sender' in settings else None
 
         return settings
@@ -110,23 +151,40 @@ class Command(BaseCommand):
         starttime = None
         endtime = None
 
-        if period == 'last-year':
+        if period == 'current-year':
+            starttime = dateparser.parse('January 1')
+            endtime = dateparser.parse('in 1 year', settings={'RELATIVE_BASE': starttime, 'PREFER_DATES_FROM': 'future'})
+
+        elif period == 'previous-year':
             start_of_year = dateparser.parse('January 1')
             starttime = dateparser.parse('1 year ago', settings={'RELATIVE_BASE': start_of_year})
             endtime = dateparser.parse('in 1 year', settings={'RELATIVE_BASE': starttime, 'PREFER_DATES_FROM': 'future'})
 
-        elif period == 'last-month':
+        elif period == 'current-month':
+            starttime = dateparser.parse(datetime.today().strftime('%Y-%m-01'))
+            endtime = dateparser.parse('in 1 month', settings={'RELATIVE_BASE': starttime, 'PREFER_DATES_FROM': 'future'})
+
+        elif period == 'previous-month':
             start_of_month = dateparser.parse(datetime.today().strftime('%Y-%m-01'))
             starttime = dateparser.parse('1 month ago', settings={'RELATIVE_BASE': start_of_month})
             endtime = dateparser.parse('in 1 month', settings={'RELATIVE_BASE': starttime, 'PREFER_DATES_FROM': 'future'})
 
-        elif period == 'last-week':
-            starttime = dateparser.parse('Monday', settings={'RELATIVE_BASE': dateparser.parse('Monday')})
+        elif period == 'current-week':
+            starttime = dateparser.parse('Monday')
             endtime = dateparser.parse('in 1 week', settings={'RELATIVE_BASE': starttime, 'PREFER_DATES_FROM': 'future'})
 
-        elif period == 'last-day':
+        elif period == 'previous-week':
+            start_of_week = dateparser.parse('Monday')
+            starttime = dateparser.parse('Monday', settings={'RELATIVE_BASE': start_of_week})
+            endtime = dateparser.parse('in 1 week', settings={'RELATIVE_BASE': starttime, 'PREFER_DATES_FROM': 'future'})
+
+        elif period == 'current-day' or period == 'today':
+            starttime = dateparser.parse('00:00:00')
+            endtime = dateparser.parse('in 1 day', settings={'RELATIVE_BASE': starttime, 'PREFER_DATES_FROM': 'future'})
+
+        elif period == 'previous-day' or period == 'yesterday':
             starttime = dateparser.parse('yesterday 00:00:00')
-            endtime = dateparser.parse('tomorrow', settings={'RELATIVE_BASE': starttime, 'PREFER_DATES_FROM': 'future'})
+            endtime = dateparser.parse('in 1 day', settings={'RELATIVE_BASE': starttime, 'PREFER_DATES_FROM': 'future'})
 
         else:
             raise CommandError('Invalid period: {}'.format(period))
