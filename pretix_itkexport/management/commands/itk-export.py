@@ -1,6 +1,6 @@
 import csv
 import io
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
 import dateparser
 import django.conf
@@ -10,9 +10,7 @@ from django.core.mail import EmailMessage
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import translation
 from django.utils.translation import ugettext_lazy as _
-from pretix_itkexport.exporters import (
-    EventExporter, PaidOrdersExporter, PaidOrdersGroupedExporter,
-)
+from pretix_itkexport.exporters import EventExporter, PaidOrdersExporter, PaidOrdersGroupedExporter
 
 
 class Command(BaseCommand):
@@ -151,12 +149,15 @@ class Command(BaseCommand):
         starttime = None
         endtime = None
 
+        today = dateparser.parse(date.today().strftime('%Y-%m-%d'))
+        this_monday = today - timedelta(days=today.weekday())
+
         if period == 'current-year':
-            starttime = dateparser.parse('January 1')
+            starttime = dateparser.parse(datetime.today().strftime('%Y-01-01'))
             endtime = dateparser.parse('in 1 year', settings={'RELATIVE_BASE': starttime, 'PREFER_DATES_FROM': 'future'})
 
         elif period == 'previous-year':
-            start_of_year = dateparser.parse('January 1')
+            start_of_year = dateparser.parse(datetime.today().strftime('%Y-01-01'))
             starttime = dateparser.parse('1 year ago', settings={'RELATIVE_BASE': start_of_year})
             endtime = dateparser.parse('in 1 year', settings={'RELATIVE_BASE': starttime, 'PREFER_DATES_FROM': 'future'})
 
@@ -170,11 +171,11 @@ class Command(BaseCommand):
             endtime = dateparser.parse('in 1 month', settings={'RELATIVE_BASE': starttime, 'PREFER_DATES_FROM': 'future'})
 
         elif period == 'current-week':
-            starttime = dateparser.parse('Monday')
+            starttime = this_monday
             endtime = dateparser.parse('in 1 week', settings={'RELATIVE_BASE': starttime, 'PREFER_DATES_FROM': 'future'})
 
         elif period == 'previous-week':
-            start_of_week = dateparser.parse('Monday')
+            start_of_week = this_monday
             starttime = dateparser.parse('Monday', settings={'RELATIVE_BASE': start_of_week})
             endtime = dateparser.parse('in 1 week', settings={'RELATIVE_BASE': starttime, 'PREFER_DATES_FROM': 'future'})
 
