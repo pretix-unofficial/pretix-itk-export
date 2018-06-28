@@ -51,10 +51,10 @@ class Exporter():
         return self.formatData(paid_orders, refunded_orders, **kwargs)
 
     def loadPaidOrders(self, **kwargs):
-        return None
+        return []
 
     def loadRefundedOrders(self, **kwargs):
-        return None
+        return []
 
     def formatData(self, paid_orders, refunded_orders, **kwargs):
         return paid_orders
