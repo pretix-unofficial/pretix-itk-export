@@ -225,18 +225,6 @@ class PaidOrdersGroupedExporter(PaidOrdersExporter):
             grouped_orders[(self.debit_artskonto, None)].append(order)
             grouped_orders[(self.credit_artskonto, pspelement)].append(order)
 
-        order_filter = {
-            'status__in': [Order.STATUS_REFUNDED],
-            'payment_provider': 'dibs',
-            'total__gt': 0
-        }
-        if 'starttime' in kwargs:
-            order_filter['payment_date__gte'] = kwargs['starttime']
-        if 'endtime' in kwargs:
-            order_filter['payment_date__lt'] = kwargs['endtime']
-
-        orders = Order.objects.filter(**order_filter).order_by('payment_date')
-
         return grouped_orders
 
     def formatData(self, paid_orders, refunded_orders, **kwargs):
