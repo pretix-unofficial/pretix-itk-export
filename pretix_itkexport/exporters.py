@@ -285,7 +285,6 @@ class PaidOrdersGroupedExporter(PaidOrdersExporter):
 
             row = [None] * len(self.headers)
             row[self.index_artskonto] = self.cash_artskonto
-            row[self.index_pspelement] = pspelement
             row[self.index_debit_credit] = 'debet'
             row[self.index_amount] = self.formatAmount(order.total)
             row[self.index_text] = _('Cash payment ({user}): {order_id}').format(order_id=DIBS.get_order_id(order), user=order.email)
@@ -294,7 +293,7 @@ class PaidOrdersGroupedExporter(PaidOrdersExporter):
 
             row = list(row)
             row[self.index_artskonto] = self.credit_artskonto
-            row[self.index_pspelement] = None
+            row[self.index_pspelement] = pspelement
             row[self.index_debit_credit] = 'kredit'
 
             rows.append(row)
