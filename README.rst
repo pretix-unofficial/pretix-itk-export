@@ -6,6 +6,20 @@ This is a plugin for `pretix`_.
 Post-installion
 ---------------
 
+Required settings in [Pretix Configuration file](https://docs.pretix.eu/en/latest/admin/config.html):
+
+.. code-block::
+
+  [itk_export]
+  ; Drift skal krediteres hvis der er tale om en indtægt
+  credit_artskonto=…
+  ; banken skal debiteres.
+  debit_artskonto=…
+
+  ; "mellemregningskonto"
+  cash_artskonto=…
+
+
 To make a non-empty “PSP” metadata value read-only, you have to use a custom template for event settings:
 
 .. code-block::
