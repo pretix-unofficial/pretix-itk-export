@@ -21,6 +21,8 @@ class Exporter():
     # Driftskal krediteres hvis der er tale om en indtægt
     credit_artskonto = None
 
+    cash_artskonto = None
+
     def __init__(self):
         if hasattr(django.conf.settings, 'ITK_EXPORT'):
             self.settings = django.conf.settings.ITK_EXPORT
@@ -29,9 +31,12 @@ class Exporter():
             raise Exception('Missing "credit_artskonto" in settings')
         if 'debit_artskonto' not in self.settings:
             raise Exception('Missing "debit_artskonto" in settings')
+        if 'cash_artskonto' not in self.settings:
+            raise Exception('Missing "cash_artskonto" in settings')
 
         self.debit_artskonto = self.settings['debit_artskonto']
         self.credit_artskonto = self.settings['credit_artskonto']
+        self.cash_artskonto = self.settings['cash_artskonto']
 
     def info(self):
         # Remove trailing "Exporter"
@@ -48,15 +53,19 @@ class Exporter():
     def getData(self, **kwargs):
         paid_orders = self.loadPaidOrders(**kwargs)
         refunded_orders = self.loadRefundedOrders(**kwargs)
-        return self.formatData(paid_orders, refunded_orders, **kwargs)
+        cash_orders = self.loadCashOrders(**kwargs)
+        return self.formatData(paid_orders, refunded_orders, cash_orders, **kwargs)
 
     def loadPaidOrders(self, **kwargs):
-        return None
+        return []
 
     def loadRefundedOrders(self, **kwargs):
-        return None
+        return []
 
-    def formatData(self, paid_orders, refunded_orders, **kwargs):
+    def loadCashOrders(self, **kwargs):
+        return []
+
+    def formatData(self, paid_orders, refunded_orders, cash_orders, **kwargs):
         return paid_orders
 
 
@@ -168,7 +177,22 @@ class PaidOrdersExporter(Exporter):
 
         return orders
 
-    def formatData(self, paid_orders, refunded_orders, **kwargs):
+    def loadCashOrders(self, **kwargs):
+        order_filter = {
+            'status__in': [Order.STATUS_PAID, Order.STATUS_REFUNDED],
+            'payment_provider': 'cash',
+            'total__gt': 0
+        }
+        if 'starttime' in kwargs:
+            order_filter['payment_date__gte'] = kwargs['starttime']
+        if 'endtime' in kwargs:
+            order_filter['payment_date__lt'] = kwargs['endtime']
+
+        orders = Order.objects.filter(**order_filter).order_by('payment_date')
+
+        return orders
+
+    def formatData(self, paid_orders, refunded_orders, cash_orders, **kwargs):
         rows = []
         rows.append(self.headers)
 
@@ -225,21 +249,9 @@ class PaidOrdersGroupedExporter(PaidOrdersExporter):
             grouped_orders[(self.debit_artskonto, None)].append(order)
             grouped_orders[(self.credit_artskonto, pspelement)].append(order)
 
-        order_filter = {
-            'status__in': [Order.STATUS_REFUNDED],
-            'payment_provider': 'dibs',
-            'total__gt': 0
-        }
-        if 'starttime' in kwargs:
-            order_filter['payment_date__gte'] = kwargs['starttime']
-        if 'endtime' in kwargs:
-            order_filter['payment_date__lt'] = kwargs['endtime']
-
-        orders = Order.objects.filter(**order_filter).order_by('payment_date')
-
         return grouped_orders
 
-    def formatData(self, paid_orders, refunded_orders, **kwargs):
+    def formatData(self, paid_orders, refunded_orders, cash_orders, **kwargs):
         rows = []
         rows.append(self.headers)
 
@@ -264,6 +276,25 @@ class PaidOrdersGroupedExporter(PaidOrdersExporter):
             row[self.index_debit_credit] = 'debet' if pspelement is not None else 'kredit'
             row[self.index_amount] = self.formatAmount(amount)
             row[self.index_text] = _('Ticket refund: {order_ids}').format(order_ids=', '.join([DIBS.get_order_id(order) for order in orders]))
+
+            rows.append(row)
+
+        for order in cash_orders:
+            meta_data = order.event.meta_data
+            pspelement = meta_data['PSP'] if 'PSP' in meta_data else None
+
+            row = [None] * len(self.headers)
+            row[self.index_artskonto] = self.cash_artskonto
+            row[self.index_debit_credit] = 'debet'
+            row[self.index_amount] = self.formatAmount(order.total)
+            row[self.index_text] = _('Cash payment ({user}): {order_id}').format(order_id=DIBS.get_order_id(order), user=order.email)
+
+            rows.append(row)
+
+            row = list(row)
+            row[self.index_artskonto] = self.credit_artskonto
+            row[self.index_pspelement] = pspelement
+            row[self.index_debit_credit] = 'kredit'
 
             rows.append(row)
 
