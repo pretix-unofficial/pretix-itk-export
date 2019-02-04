@@ -1,5 +1,6 @@
 import csv
 import io
+import re
 from datetime import date, datetime, timedelta
 
 import dateparser
@@ -10,7 +11,9 @@ from django.core.mail import EmailMessage
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import translation
 from django.utils.translation import ugettext_lazy as _
-from pretix_itkexport.exporters import EventExporter, PaidOrdersExporter, PaidOrdersGroupedExporter
+from pretix_itkexport.exporters import (
+    EventExporter, PaidOrdersExporter, PaidOrdersGroupedExporter,
+)
 
 
 class Command(BaseCommand):
@@ -34,7 +37,9 @@ class Command(BaseCommand):
                                  'current-month, previous-month, '
                                  'current-week, previous-week, '
                                  'current-day, today, '
-                                 'previous-day, yesterday')
+                                 'previous-day, yesterday'
+                                 ', previous-week[±days]'
+                            )
         parser.add_argument('--recipient', action='append', nargs='?', type=str, help='Email adress to send export result to (can be used multiple times)')
         parser.add_argument('--debug', action='store_true')
         parser.add_argument('--verbose', action='store_true')
@@ -150,6 +155,7 @@ class Command(BaseCommand):
         endtime = None
 
         today = dateparser.parse(date.today().strftime('%Y-%m-%d'))
+        # Monday in the current week
         this_monday = today - timedelta(days=today.weekday())
 
         if period == 'current-year':
@@ -174,10 +180,17 @@ class Command(BaseCommand):
             starttime = this_monday
             endtime = dateparser.parse('in 1 week', settings={'RELATIVE_BASE': starttime, 'PREFER_DATES_FROM': 'future'})
 
-        elif period == 'previous-week':
+        elif re.match(r'previous-week([+-]\d+)?', period):
+            match = re.match(r'previous-week([+-]\d+)?', period)
+            offset = int(match.group(1)) if match.group(1) is not None else 0
+
             start_of_week = this_monday
             starttime = dateparser.parse('Monday', settings={'RELATIVE_BASE': start_of_week})
             endtime = dateparser.parse('in 1 week', settings={'RELATIVE_BASE': starttime, 'PREFER_DATES_FROM': 'future'})
+
+            if offset != 0:
+                starttime += timedelta(days=offset)
+                endtime += timedelta(days=offset)
 
         elif period == 'current-day' or period == 'today':
             starttime = dateparser.parse('00:00:00')
