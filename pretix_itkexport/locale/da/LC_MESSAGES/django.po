@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2019-05-28 08:40+0000\n"
-"PO-Revision-Date: 2019-05-28 10:45+0200\n"
+"PO-Revision-Date: 2019-05-28 15:16+0200\n"
 "Last-Translator: Mikkel Ricky\n"
 "Language-Team: \n"
 "Language: da\n"
@@ -21,10 +21,9 @@ msgid "Ticket sale: {order_id}"
 msgstr "Billetsalg: {order_id}"
 
 #: pretix_itkexport/exporters.py:274
-#, fuzzy, python-brace-format
-#| msgid "Ticket sale: {order_ids}"
+#, python-brace-format
 msgid "Ticket sale ({card_type}): {order_ids}"
-msgstr "Billetsalg: {order_ids}"
+msgstr "Billetsalg ({card_type}): {order_ids}"
 
 #: pretix_itkexport/exporters.py:276
 #, python-brace-format
@@ -32,22 +31,19 @@ msgid "Ticket sale: {order_ids}"
 msgstr "Billetsalg: {order_ids}"
 
 #: pretix_itkexport/exporters.py:290
-#, fuzzy, python-brace-format
-#| msgid "Ticket sale: {order_ids}"
+#, python-brace-format
 msgid "Ticket refund ({card_type}): {order_ids}"
-msgstr "Billetsalg: {order_ids}"
+msgstr "Billetsalg ({card_type}): {order_ids}"
 
 #: pretix_itkexport/exporters.py:292
-#, fuzzy, python-brace-format
-#| msgid "Ticket sale: {order_ids}"
+#, python-brace-format
 msgid "Ticket refund: {order_ids}"
 msgstr "Billetsalg: {order_ids}"
 
 #: pretix_itkexport/exporters.py:304
-#, fuzzy, python-brace-format
-#| msgid "Ticket sale: {order_id}"
+#, python-brace-format
 msgid "Cash payment ({user}): {order_id}"
-msgstr "Billetsalg: {order_id}"
+msgstr "Billetsalg ({user}): {order_id}"
 
 #: pretix_itkexport/exporters.py:319
 msgid "credit"
