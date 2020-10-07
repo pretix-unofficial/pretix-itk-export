@@ -320,3 +320,118 @@ class PaidOrdersGroupedExporter(PaidOrdersExporter):
         if DIBS.CARD_TYPE_DEBIT == card_type:
             return _('debit')
         return card_type
+
+class PaidOrdersGrouped2020Exporter(PaidOrdersExporter):
+    """
+    Exports paid orders grouped by (artskonto, pspelement) 2020.
+    """
+
+    def loadPaidOrders(self, **kwargs):
+        orders = super().loadPaidOrders(**kwargs)
+
+        grouped_orders = defaultdict(list)
+        for order in orders:
+            meta_data = order.event.meta_data
+            pspelement = meta_data['PSP'] if 'PSP' in meta_data else None
+            card_type = None
+            if DIBS.identifier == order.payment_provider:
+                card_type = DIBS.get_payment_card_type(order)
+
+            grouped_orders[(self.debit_artskonto, None, None, card_type)].append(order)
+            grouped_orders[(self.credit_artskonto, pspelement, order.event.slug, None)].append(order)
+
+        return grouped_orders
+
+    def loadRefundedOrders(self, **kwargs):
+        orders = super().loadRefundedOrders(**kwargs)
+
+        grouped_orders = defaultdict(list)
+        for order in orders:
+            meta_data = order.event.meta_data
+            pspelement = meta_data['PSP'] if 'PSP' in meta_data else None
+            card_type = None
+            if DIBS.identifier == order.payment_provider:
+                card_type = DIBS.get_payment_card_type(order)
+
+            grouped_orders[(self.debit_artskonto, None, None, card_type)].append(order)
+            grouped_orders[(self.credit_artskonto, pspelement, order.event.slug, None)].append(order)
+
+        return grouped_orders
+
+    def formatData(self, paid_orders, refunded_orders, cash_orders, **kwargs):
+        rows = []
+        rows.append(self.headers)
+
+        for [artskonto, pspelement, event_slug, card_type], orders in paid_orders.items():
+            amount = sum([order.total for order in orders])
+
+            row = [None] * len(self.headers)
+            row[self.index_artskonto] = artskonto
+            row[self.index_pspelement] = pspelement
+            row[self.index_debit_credit] = 'kredit' if pspelement is not None else 'debet'
+            row[self.index_amount] = self.formatAmount(amount)
+
+            grouped_orders = defaultdict(list)
+            for order in orders:
+                grouped_orders[order.event.slug].append(order)
+            for event_slug, event_orders in grouped_orders.items():
+                grouped_orders[event_slug] = ', '.join([DIBS.get_order_id(order).split('/')[-1] for order in event_orders])
+            order_ids = '; '.join([event_slug+'/'+event_order_codes for event_slug, event_order_codes in grouped_orders.items()])
+
+            if card_type is not None:
+                row[self.index_text] = _('Ticket sale ({card_type}): {order_ids}').format(card_type=self.localizeCardType(card_type), order_ids=order_ids)
+            else:
+                row[self.index_text] = _('Ticket sale: {order_ids}').format(order_ids=order_ids)
+
+            rows.append(row)
+
+        for [artskonto, pspelement, event_slug, card_type], orders in refunded_orders.items():
+            amount = sum([order.total for order in orders])
+
+            row = [None] * len(self.headers)
+            row[self.index_artskonto] = artskonto
+            row[self.index_pspelement] = pspelement
+            row[self.index_debit_credit] = 'debet' if pspelement is not None else 'kredit'
+            row[self.index_amount] = self.formatAmount(amount)
+
+            grouped_orders = defaultdict(list)
+            for order in orders:
+                grouped_orders[order.event.slug].append(order)
+            for event_slug, event_orders in grouped_orders.items():
+                grouped_orders[event_slug] = ', '.join([DIBS.get_order_id(order).split('/')[-1] for order in event_orders])
+            order_ids = '; '.join([event_slug+'/'+event_order_codes for event_slug, event_order_codes in grouped_orders.items()])
+
+            if card_type is not None:
+                row[self.index_text] = _('Ticket refund ({card_type}): {order_ids}').format(card_type=self.localizeCardType(card_type), order_ids=order_ids)
+            else:
+                row[self.index_text] = _('Ticket refund: {order_ids}').format(order_ids=order_ids)
+
+            rows.append(row)
+
+        for order in cash_orders:
+            meta_data = order.event.meta_data
+            pspelement = meta_data['PSP'] if 'PSP' in meta_data else None
+
+            row = [None] * len(self.headers)
+            row[self.index_artskonto] = self.cash_artskonto
+            row[self.index_debit_credit] = 'debet'
+            row[self.index_amount] = self.formatAmount(order.total)
+            row[self.index_text] = _('Cash payment ({user}): {order_id}').format(order_id=DIBS.get_order_id(order), user=order.email)
+
+            rows.append(row)
+
+            row = list(row)
+            row[self.index_artskonto] = self.credit_artskonto
+            row[self.index_pspelement] = pspelement
+            row[self.index_debit_credit] = 'kredit'
+
+            rows.append(row)
+
+        return rows
+
+    def localizeCardType(self, card_type):
+        if DIBS.CARD_TYPE_CREDIT == card_type:
+            return _('credit')
+        if DIBS.CARD_TYPE_DEBIT == card_type:
+            return _('debit')
+        return card_type

@@ -12,7 +12,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.utils import translation
 from django.utils.translation import ugettext_lazy as _
 from pretix_itkexport.exporters import (
-    EventExporter, PaidOrdersExporter, PaidOrdersGroupedExporter,
+    EventExporter, PaidOrdersExporter, PaidOrdersGroupedExporter, PaidOrdersGrouped2020Exporter,
 )
 
 
@@ -24,7 +24,8 @@ class Command(BaseCommand):
     exporter_classes = {
         'event': EventExporter,
         'paid-orders': PaidOrdersExporter,
-        'paid-orders-grouped': PaidOrdersGroupedExporter
+        'paid-orders-grouped': PaidOrdersGroupedExporter,
+        'paid-orders-grouped-2020': PaidOrdersGrouped2020Exporter,
     }
 
     def add_arguments(self, parser):
