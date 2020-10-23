@@ -198,23 +198,33 @@ class PaidOrdersExporter(Exporter):
 
         for order in paid_orders:
             meta_data = order.event.meta_data
-
             pspelement = meta_data['PSP'] if 'PSP' in meta_data else None
+            card_type = None
+            if DIBS.identifier == order.payment_provider:
+                card_type = DIBS.get_payment_card_type(order)
             amount = order.total
 
+            artskonto = self.credit_artskonto
+
             row = [None] * len(self.headers)
-            row[self.index_debit_credit] = 'kredit'
-            row[self.index_artskonto] = self.credit_artskonto
+            row[self.index_artskonto] = artskonto
             row[self.index_pspelement] = pspelement
+            row[self.index_debit_credit] = 'kredit' if pspelement is not None else 'debet'
             row[self.index_amount] = self.formatAmount(amount)
-            row[self.index_text] = _('Ticket sale: {order_id}').format(order_id=DIBS.get_order_id(order))
+            if card_type is not None:
+                row[self.index_text] = _('Ticket sale ({card_type}): {order_ids}').format(card_type=self.localizeCardType(card_type), order_ids=order_ids)
+            else:
+                row[self.index_text] = _('Ticket sale: {order_ids}').format(order_ids=order_ids)
             rows.append(row)
+
+            artskonto = self.debit_artskonto
+            pspelement = None
 
             # We have to copy the row for some reason …
             row = list(row)
-            row[self.index_debit_credit] = 'debet'
-            row[self.index_artskonto] = self.debit_artskonto
-            row[self.index_pspelement] = None
+            row[self.index_artskonto] = artskonto
+            row[self.index_pspelement] = pspelement
+            row[self.index_debit_credit] = 'kredit' if pspelement is not None else 'debet'
             rows.append(row)
 
         return rows
