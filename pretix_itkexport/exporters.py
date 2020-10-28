@@ -193,38 +193,103 @@ class PaidOrdersExporter(Exporter):
         return orders
 
     def formatData(self, paid_orders, refunded_orders, cash_orders, **kwargs):
+        raise Exception(self.__class__.__name__+'.formatData not implemented')
+
+    def localizeCardType(self, card_type):
+        if DIBS.CARD_TYPE_CREDIT == card_type:
+            return _('credit')
+        if DIBS.CARD_TYPE_DEBIT == card_type:
+            return _('debit')
+        return card_type
+
+    def getCardType(self, order):
+        return DIBS.get_payment_card_type(order) if DIBS.identifier == order.payment_provider else None
+
+
+class PaidOrdersLineExporter(PaidOrdersExporter):
+    def loadPaidOrders(self, **kwargs):
+        orders = super().loadPaidOrders(**kwargs)
+
+        grouped_orders = defaultdict(list)
+        for order in orders:
+            meta_data = order.event.meta_data
+            pspelement = meta_data['PSP'] if 'PSP' in meta_data else None
+            card_type = self.getCardType(order)
+            order_id = DIBS.get_order_id(order)
+
+            grouped_orders[(self.debit_artskonto, None, card_type, order_id)].append(order)
+            grouped_orders[(self.credit_artskonto, pspelement, None, order_id)].append(order)
+
+        return grouped_orders
+
+    def loadRefundedOrders(self, **kwargs):
+        orders = super().loadRefundedOrders(**kwargs)
+
+        grouped_orders = defaultdict(list)
+        for order in orders:
+            meta_data = order.event.meta_data
+            pspelement = meta_data['PSP'] if 'PSP' in meta_data else None
+            card_type = self.getCardType(order)
+            order_id = DIBS.get_order_id(order)
+
+            grouped_orders[(self.debit_artskonto, None, card_type, order_id)].append(order)
+            grouped_orders[(self.credit_artskonto, pspelement, None, order_id)].append(order)
+
+        return grouped_orders
+
+    def formatData(self, paid_orders, refunded_orders, cash_orders, **kwargs):
         rows = []
         rows.append(self.headers)
 
-        for order in paid_orders:
-            meta_data = order.event.meta_data
-            pspelement = meta_data['PSP'] if 'PSP' in meta_data else None
-            card_type = None
-            if DIBS.identifier == order.payment_provider:
-                card_type = DIBS.get_payment_card_type(order)
-            amount = order.total
-
-            artskonto = self.credit_artskonto
+        for [artskonto, pspelement, card_type, order_id], orders in paid_orders.items():
+            amount = sum([order.total for order in orders])
 
             row = [None] * len(self.headers)
             row[self.index_artskonto] = artskonto
             row[self.index_pspelement] = pspelement
             row[self.index_debit_credit] = 'kredit' if pspelement is not None else 'debet'
             row[self.index_amount] = self.formatAmount(amount)
+            order_ids = ', '.join([DIBS.get_order_id(order) for order in orders])
             if card_type is not None:
                 row[self.index_text] = _('Ticket sale ({card_type}): {order_ids}').format(card_type=self.localizeCardType(card_type), order_ids=order_ids)
             else:
                 row[self.index_text] = _('Ticket sale: {order_ids}').format(order_ids=order_ids)
+
             rows.append(row)
 
-            artskonto = self.debit_artskonto
-            pspelement = None
+        for [artskonto, pspelement, card_type, order_id], orders in refunded_orders.items():
+            amount = sum([order.total for order in orders])
 
-            # We have to copy the row for some reason …
-            row = list(row)
+            row = [None] * len(self.headers)
             row[self.index_artskonto] = artskonto
             row[self.index_pspelement] = pspelement
-            row[self.index_debit_credit] = 'kredit' if pspelement is not None else 'debet'
+            row[self.index_debit_credit] = 'debet' if pspelement is not None else 'kredit'
+            row[self.index_amount] = self.formatAmount(amount)
+            order_ids = ', '.join([DIBS.get_order_id(order) for order in orders])
+            if card_type is not None:
+                row[self.index_text] = _('Ticket refund ({card_type}): {order_ids}').format(card_type=self.localizeCardType(card_type), order_ids=order_ids)
+            else:
+                row[self.index_text] = _('Ticket refund: {order_ids}').format(order_ids=order_ids)
+
+            rows.append(row)
+
+        for order in cash_orders:
+            meta_data = order.event.meta_data
+            pspelement = meta_data['PSP'] if 'PSP' in meta_data else None
+
+            row = [None] * len(self.headers)
+            row[self.index_artskonto] = self.cash_artskonto
+            row[self.index_debit_credit] = 'debet'
+            row[self.index_amount] = self.formatAmount(order.total)
+            row[self.index_text] = _('Cash payment ({user}): {order_id}').format(order_id=DIBS.get_order_id(order), user=order.email)
+
+            rows.append(row)
+
+            row = list(row)
+            row[self.index_artskonto] = self.credit_artskonto
+            row[self.index_pspelement] = pspelement
+            row[self.index_debit_credit] = 'kredit'
+
             rows.append(row)
 
         return rows
@@ -242,9 +307,7 @@ class PaidOrdersGroupedExporter(PaidOrdersExporter):
         for order in orders:
             meta_data = order.event.meta_data
             pspelement = meta_data['PSP'] if 'PSP' in meta_data else None
-            card_type = None
-            if DIBS.identifier == order.payment_provider:
-                card_type = DIBS.get_payment_card_type(order)
+            card_type = self.getCardType(order)
 
             grouped_orders[(self.debit_artskonto, None, card_type)].append(order)
             grouped_orders[(self.credit_artskonto, pspelement, None)].append(order)
@@ -258,9 +321,7 @@ class PaidOrdersGroupedExporter(PaidOrdersExporter):
         for order in orders:
             meta_data = order.event.meta_data
             pspelement = meta_data['PSP'] if 'PSP' in meta_data else None
-            card_type = None
-            if DIBS.identifier == order.payment_provider:
-                card_type = DIBS.get_payment_card_type(order)
+            card_type = self.getCardType(order)
 
             grouped_orders[(self.debit_artskonto, None, card_type)].append(order)
             grouped_orders[(self.credit_artskonto, pspelement, None)].append(order)
@@ -323,10 +384,3 @@ class PaidOrdersGroupedExporter(PaidOrdersExporter):
             rows.append(row)
 
         return rows
-
-    def localizeCardType(self, card_type):
-        if DIBS.CARD_TYPE_CREDIT == card_type:
-            return _('credit')
-        if DIBS.CARD_TYPE_DEBIT == card_type:
-            return _('debit')
-        return card_type

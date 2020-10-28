@@ -12,7 +12,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.utils import translation
 from django.utils.translation import ugettext_lazy as _
 from pretix_itkexport.exporters import (
-    EventExporter, PaidOrdersExporter, PaidOrdersGroupedExporter,
+    EventExporter, PaidOrdersLineExporter, PaidOrdersGroupedExporter,
 )
 
 
@@ -23,7 +23,7 @@ class Command(BaseCommand):
 
     exporter_classes = {
         'event': EventExporter,
-        'paid-orders': PaidOrdersExporter,
+        'paid-orders': PaidOrdersLineExporter,
         'paid-orders-grouped': PaidOrdersGroupedExporter
     }
 
@@ -78,6 +78,12 @@ class Command(BaseCommand):
             if recipient_list:
                 now = datetime.now()
                 filename = 'eventbillet-{}.csv'.format(now.strftime('%Y%m%dT%H%M'))
+                if 'starttime' in settings:
+                    filename = 'eventbillet-{:%Y%m%d}'.format(settings['starttime'])
+                    if 'endtime' in settings:
+                        filename += '-{:%Y%m%d}'.format(settings['endtime'])
+                    filename += '.csv'
+
                 output = io.StringIO()
                 writer = csv.writer(output, dialect='excel', delimiter=';', quotechar='"', quoting=csv.QUOTE_MINIMAL)
                 for row in data:
@@ -115,7 +121,7 @@ class Command(BaseCommand):
                 for row in data:
                     writer.writerow(row)
         except Exception as e:
-            raise CommandError(e)
+            raise e if debug else CommandError(e)
 
     def getSettings(self, options):
         settings = django.conf.settings.ITK_EXPORT.copy() if hasattr(django.conf.settings, 'ITK_EXPORT') else {}
