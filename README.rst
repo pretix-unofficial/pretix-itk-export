@@ -19,16 +19,6 @@ Required settings in [Pretix Configuration file](https://docs.pretix.eu/en/lates
   ; "mellemregningskonto"
   cash_artskonto=…
 
-
-To make a non-empty “PSP” metadata value read-only, you have to use a custom template for event settings:
-
-.. code-block::
-
-  cd «your `data` folder»
-  mkdir -p templates/pretixcontrol/event/
-  ln -sf $VIRTUAL_ENV/src/pretix-itk-export/pretix_itkexport/templates/pretixcontrol/event/settings.html templates/pretixcontrol/event/
-
-
 Usage
 -----
 
@@ -36,6 +26,11 @@ Usage
 
   LC_ALL=da_DK.UTF-8 python manage.py itk-export --help
 
+Run weekly with cron:
+
+.. code-block::
+
+  0 2 * * TUE LC_ALL=da_DK.UTF-8 python manage itk-export --period=previous-week+1 --recipient=…@aarhus.dk > /dev/null 2>&1
 
 Development setup
 -----------------

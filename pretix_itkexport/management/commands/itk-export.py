@@ -12,7 +12,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.utils import translation
 from django.utils.translation import ugettext_lazy as _
 from pretix_itkexport.exporters import (
-    EventExporter, PaidOrdersLineExporter, PaidOrdersGroupedExporter,
+    PaidOrdersLineExporter
 )
 
 
@@ -21,15 +21,7 @@ class Command(BaseCommand):
 
     date_format = '%Y-%m-%d'
 
-    exporter_classes = {
-        'event': EventExporter,
-        'paid-orders': PaidOrdersLineExporter,
-        'paid-orders-grouped': PaidOrdersGroupedExporter
-    }
-
     def add_arguments(self, parser):
-        parser.add_argument('export_type', type=str, help=', '.join(Command.exporter_classes.keys()))
-        parser.add_argument('--info', action='store_true', help='Show info on the specified export type')
         parser.add_argument('--starttime', nargs='?', type=str)
         parser.add_argument('--endtime', nargs='?', type=str)
         parser.add_argument('--period', nargs='?', type=str,
@@ -61,15 +53,7 @@ class Command(BaseCommand):
                 print('settings:')
                 print(yaml.dump(settings, default_flow_style=False))
 
-            export_type = settings['export_type']
-            if export_type not in Command.exporter_classes:
-                raise CommandError('Unknown export type: {}'.format(export_type))
-
-            exporter = Command.exporter_classes[export_type]()
-
-            if options['info']:
-                print(exporter.info())
-                return
+            exporter = PaidOrdersLineExporter()
 
             data = exporter.getData(**settings)
 
