@@ -33,7 +33,7 @@ setup(
     author_email='rimi@aarhus.dk',
     license='Apache Software License',
 
-    install_requires=[],
+    install_requires=['dateparser'],
     packages=find_packages(exclude=['tests', 'tests.*']),
     include_package_data=True,
     cmdclass=cmdclass,
