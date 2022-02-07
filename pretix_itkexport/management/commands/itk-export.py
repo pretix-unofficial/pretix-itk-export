@@ -32,6 +32,10 @@ class Command(BaseCommand):
                                  'previous-day, yesterday'
                                  ', previous-week[±days]'
                             )
+        parser.add_argument('--debit-artskonto', nargs=1, type=str)
+        parser.add_argument('--credit-artskonto', nargs=1, type=str)
+        parser.add_argument('--cash-artskonto', nargs=1, type=str)
+        parser.add_argument('--organizer', action='append', nargs='+', type=str, help='Organizer slugs to select (can be used multiple times)')
         parser.add_argument('--recipient', action='append', nargs='?', type=str, help='Email adress to send export result to (can be used multiple times)')
         parser.add_argument('--debug', action='store_true')
         parser.add_argument('--verbose', action='store_true')
@@ -53,7 +57,7 @@ class Command(BaseCommand):
                 print('settings:')
                 print(yaml.dump(settings, default_flow_style=False))
 
-            exporter = PaidOrdersLineExporter()
+            exporter = PaidOrdersLineExporter(options)
 
             data = exporter.getData(**settings)
 
@@ -108,7 +112,7 @@ class Command(BaseCommand):
             raise e if debug else CommandError(e)
 
     def getSettings(self, options):
-        settings = django.conf.settings.ITK_EXPORT.copy() if hasattr(django.conf.settings, 'ITK_EXPORT') else {}
+        settings = {}
 
         for name in options:
             if options[name] is not None:

@@ -1,8 +1,6 @@
 import locale
-import re
 from collections import defaultdict
 
-import django.conf
 from django.utils.translation import ugettext_lazy as _
 from pretix.base.models.log import LogEntry
 from pretix.base.models.orders import Order
@@ -13,8 +11,6 @@ locale.setlocale(locale.LC_ALL, '')
 
 
 class Exporter():
-    settings = dict()
-
     # banken skal debiteres.
     debit_artskonto = None
 
@@ -23,20 +19,18 @@ class Exporter():
 
     cash_artskonto = None
 
-    def __init__(self):
-        if hasattr(django.conf.settings, 'ITK_EXPORT'):
-            self.settings = django.conf.settings.ITK_EXPORT
-
-        if 'credit_artskonto' not in self.settings:
+    def __init__(self, options):
+        if 'credit_artskonto' not in options:
             raise Exception('Missing "credit_artskonto" in settings')
-        if 'debit_artskonto' not in self.settings:
+        if 'debit_artskonto' not in options:
             raise Exception('Missing "debit_artskonto" in settings')
-        if 'cash_artskonto' not in self.settings:
+        if 'cash_artskonto' not in options:
             raise Exception('Missing "cash_artskonto" in settings')
 
-        self.debit_artskonto = self.settings['debit_artskonto']
-        self.credit_artskonto = self.settings['credit_artskonto']
-        self.cash_artskonto = self.settings['cash_artskonto']
+        self.organizers = options['organizer']
+        self.debit_artskonto = options['debit_artskonto']
+        self.credit_artskonto = options['credit_artskonto']
+        self.cash_artskonto = options['cash_artskonto']
 
     @staticmethod
     def formatAmount(amount):
@@ -64,6 +58,7 @@ class Exporter():
 class EventExporter(Exporter):
     def getData(self, **kwargs):
         order_filter = {
+            'event__organizer__in': self.organizers,
             'status': Order.STATUS_PAID
         }
         if 'starttime' in kwargs:
@@ -137,6 +132,7 @@ class PaidOrdersExporter(Exporter):
 
     def loadPaidOrders(self, **kwargs):
         order_filter = {
+            'event__organizer__in': self.organizers,
             'status__in': [Order.STATUS_PAID, Order.STATUS_REFUNDED],
             'payment_provider': 'dibs',
             'total__gt': 0
@@ -158,6 +154,7 @@ class PaidOrdersExporter(Exporter):
             ' inner join ' + logentry_table_name + ' l on l.object_id = o.id and l.action_type = %(action_type)s' \
             ' where o.status in %(status)s and o.payment_provider = %(payment_provider)s and o.total > 0' \
             ' and %(starttime)s <= l.datetime and l.datetime < %(endtime)s'
+        # todo: filter by organizer
         parameters = {
             'action_type': 'pretix.event.order.refunded',
             'status': [Order.STATUS_REFUNDED],
@@ -171,6 +168,7 @@ class PaidOrdersExporter(Exporter):
 
     def loadCashOrders(self, **kwargs):
         order_filter = {
+            'event__organizer__in': self.organizers,
             'status__in': [Order.STATUS_PAID, Order.STATUS_REFUNDED],
             'payment_provider': 'cash',
             'total__gt': 0

@@ -3,22 +3,6 @@ ITK export
 
 This is a plugin for `pretix`_.
 
-Post-installion
----------------
-
-Required settings in [Pretix Configuration file](https://docs.pretix.eu/en/latest/admin/config.html):
-
-.. code-block::
-
-  [itk_export]
-  ; Drift skal krediteres hvis der er tale om en indtægt
-  credit_artskonto=…
-  ; banken skal debiteres.
-  debit_artskonto=…
-
-  ; "mellemregningskonto"
-  cash_artskonto=…
-
 Usage
 -----
 
@@ -30,7 +14,7 @@ Run weekly with cron:
 
 .. code-block::
 
-  0 2 * * TUE LC_ALL=da_DK.UTF-8 python manage itk-export --period=previous-week+1 --recipient=…@aarhus.dk > /dev/null 2>&1
+  0 2 * * TUE LC_ALL=da_DK.UTF-8 python manage itk-export --period=previous-week+1 --organizers test --credit-artskonto=3 --debit-artskonto=2 --cash-artskonto 1 --recipient=…@aarhus.dk > /dev/null 2>&1
 
 Development setup
 -----------------
