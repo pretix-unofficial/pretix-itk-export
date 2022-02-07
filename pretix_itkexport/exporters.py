@@ -1,13 +1,10 @@
-import locale
 from collections import defaultdict
 
+from django.template.defaultfilters import floatformat
 from django.utils.translation import ugettext_lazy as _
 from pretix.base.models.log import LogEntry
 from pretix.base.models.orders import Order
 from pretix_paymentdibs.payment import DIBS
-
-# Make Python locale aware (and use LC_ALL from environment)
-locale.setlocale(locale.LC_ALL, '')
 
 
 class Exporter():
@@ -34,7 +31,7 @@ class Exporter():
 
     @staticmethod
     def formatAmount(amount):
-        return locale.format('%.2f', amount)
+        return floatformat(amount, 2)
 
     def getData(self, **kwargs):
         paid_orders = self.loadPaidOrders(**kwargs)

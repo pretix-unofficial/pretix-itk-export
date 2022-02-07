@@ -8,13 +8,13 @@ Usage
 
 .. code-block::
 
-  LC_ALL=da_DK.UTF-8 python manage.py itk-export --help
+  python manage.py itk-export --help
 
 Run weekly with cron:
 
 .. code-block::
 
-  0 2 * * TUE LC_ALL=da_DK.UTF-8 python manage itk-export --period=previous-week+1 --organizers test --credit-artskonto=3 --debit-artskonto=2 --cash-artskonto 1 --recipient=…@aarhus.dk > /dev/null 2>&1
+  0 2 * * TUE python manage itk-export --period=previous-week+1 --organizers test --credit-artskonto=3 --debit-artskonto=2 --cash-artskonto 1 --recipient=…@aarhus.dk --locale da-dk > /dev/null 2>&1
 
 Development setup
 -----------------

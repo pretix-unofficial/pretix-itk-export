@@ -16,6 +16,7 @@ from pretix_itkexport.exporters import (
     PaidOrdersLineExporter
 )
 
+from pretix.base.i18n import language
 from pretix.base.models import Organizer
 
 
@@ -27,6 +28,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('--starttime', nargs='?', type=str)
         parser.add_argument('--endtime', nargs='?', type=str)
+        parser.add_argument('--locale', nargs='?', type=str)
         parser.add_argument('--period', nargs='?', type=str,
                             help='current-year, previous-year, '
                                  'current-month, previous-month, '
@@ -62,7 +64,7 @@ class Command(BaseCommand):
 
             organizers = list(Organizer.objects.filter(slug__in=options['organizer']))
             options['organizer'] = organizers
-            with scope(organizer=organizers):
+            with scope(organizer=organizers), language(options.get('locale')):
                 exporter = PaidOrdersLineExporter(options)
                 data = exporter.getData(**settings)
 
