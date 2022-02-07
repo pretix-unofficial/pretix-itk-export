@@ -11,9 +11,12 @@ from django.core.mail import EmailMessage
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import translation
 from django.utils.translation import ugettext_lazy as _
+from django_scopes import scope
 from pretix_itkexport.exporters import (
     PaidOrdersLineExporter
 )
+
+from pretix.base.models import Organizer
 
 
 class Command(BaseCommand):
@@ -57,9 +60,11 @@ class Command(BaseCommand):
                 print('settings:')
                 print(yaml.dump(settings, default_flow_style=False))
 
-            exporter = PaidOrdersLineExporter(options)
-
-            data = exporter.getData(**settings)
+            organizers = list(Organizer.objects.filter(slug__in=options['organizer']))
+            options['organizer'] = organizers
+            with scope(organizer=organizers):
+                exporter = PaidOrdersLineExporter(options)
+                data = exporter.getData(**settings)
 
             recipient_list = settings['recipient_list']
 
